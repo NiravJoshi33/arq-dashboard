@@ -23,11 +23,9 @@
 		invalidateAll();
 	}
 
-	// Get page title from route data or page store
+	// Get page title from page store data (child routes)
 	const pageTitle = $derived(
-		$page.data?.pageTitle || 
-		data?.pageTitle || 
-		'Dashboard'
+		($page.data as { pageTitle?: string })?.pageTitle || 'Dashboard'
 	);
 </script>
 

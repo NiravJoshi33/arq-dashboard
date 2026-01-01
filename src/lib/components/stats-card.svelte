@@ -4,13 +4,13 @@
 	import CardHeader from './ui/card-header.svelte';
 	import CardTitle from './ui/card-title.svelte';
 	import CardContent from './ui/card-content.svelte';
-	import type { ComponentType } from 'svelte';
+	import type { Component } from 'svelte';
 
 	interface Props {
 		title: string;
 		value: string | number;
 		description?: string;
-		icon?: ComponentType<{ size?: number; class?: string }>;
+		icon?: Component<{ size?: number; class?: string }>;
 		trend?: { value: number; isPositive: boolean };
 		variant?: 'default' | 'success' | 'warning' | 'destructive' | 'info';
 		class?: string;

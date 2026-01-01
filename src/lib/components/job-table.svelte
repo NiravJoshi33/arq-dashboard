@@ -9,7 +9,7 @@
 	import { formatDuration, formatRelativeTime, truncateString } from '$lib/utils';
 	import { ArrowUpDown, ChevronUp, ChevronDown } from 'lucide-svelte';
 	import type { Job, JobSort } from '$lib/types';
-	import type { ComponentType } from 'svelte';
+	import type { Component } from 'svelte';
 
 	interface Props {
 		jobs: Job[];
@@ -31,10 +31,17 @@
 		onSort({ field, direction: newDirection });
 	}
 
-	function getSortIcon(field: SortableField): ComponentType {
+	function getSortIcon(field: SortableField): Component {
 		if (sort?.field !== field) return ArrowUpDown;
 		return sort.direction === 'asc' ? ChevronUp : ChevronDown;
 	}
+
+	const idIcon = $derived(getSortIcon('id'));
+	const functionIcon = $derived(getSortIcon('function'));
+	const statusIcon = $derived(getSortIcon('status'));
+	const queueIcon = $derived(getSortIcon('queue'));
+	const enqueuedAtIcon = $derived(getSortIcon('enqueuedAt'));
+	const durationIcon = $derived(getSortIcon('duration'));
 </script>
 
 <Table>
@@ -46,8 +53,7 @@
 					onclick={() => handleSort('id')}
 				>
 					Job ID
-					{@const Icon = getSortIcon('id')}
-					<Icon class="h-4 w-4" />
+					<svelte:component this={idIcon} class="h-4 w-4" />
 				</button>
 			</TableHead>
 			<TableHead>
@@ -56,8 +62,7 @@
 					onclick={() => handleSort('function')}
 				>
 					Function
-					{@const Icon = getSortIcon('function')}
-					<Icon class="h-4 w-4" />
+					<svelte:component this={functionIcon} class="h-4 w-4" />
 				</button>
 			</TableHead>
 			<TableHead class="w-[100px]">
@@ -66,8 +71,7 @@
 					onclick={() => handleSort('status')}
 				>
 					Status
-					{@const Icon = getSortIcon('status')}
-					<Icon class="h-4 w-4" />
+					<svelte:component this={statusIcon} class="h-4 w-4" />
 				</button>
 			</TableHead>
 			<TableHead class="w-[100px]">
@@ -76,8 +80,7 @@
 					onclick={() => handleSort('queue')}
 				>
 					Queue
-					{@const Icon = getSortIcon('queue')}
-					<Icon class="h-4 w-4" />
+					<svelte:component this={queueIcon} class="h-4 w-4" />
 				</button>
 			</TableHead>
 			<TableHead class="w-[140px]">
@@ -86,8 +89,7 @@
 					onclick={() => handleSort('enqueuedAt')}
 				>
 					Enqueued
-					{@const Icon = getSortIcon('enqueuedAt')}
-					<Icon class="h-4 w-4" />
+					<svelte:component this={enqueuedAtIcon} class="h-4 w-4" />
 				</button>
 			</TableHead>
 			<TableHead class="w-[100px]">
@@ -96,8 +98,7 @@
 					onclick={() => handleSort('duration')}
 				>
 					Duration
-					{@const Icon = getSortIcon('duration')}
-					<Icon class="h-4 w-4" />
+					<svelte:component this={durationIcon} class="h-4 w-4" />
 				</button>
 			</TableHead>
 		</TableRow>
@@ -105,7 +106,7 @@
 	<TableBody>
 		{#if jobs.length === 0}
 			<TableRow>
-				<TableCell class="text-center text-muted-foreground py-8" colspan="6">
+				<TableCell class="text-center text-muted-foreground py-8" colspan={6}>
 					No jobs found
 				</TableCell>
 			</TableRow>
