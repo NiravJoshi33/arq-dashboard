@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { cn } from '$lib/utils';
 	import type { Snippet } from 'svelte';
-	import type { HTMLAttributes } from 'svelte/elements';
+	import type { HTMLTdAttributes } from 'svelte/elements';
 
-	interface Props extends HTMLAttributes<HTMLTableCellElement> {
+	interface Props extends HTMLTdAttributes {
 		class?: string;
 		children?: Snippet;
 	}
@@ -16,4 +16,3 @@
 		{@render children()}
 	{/if}
 </td>
-

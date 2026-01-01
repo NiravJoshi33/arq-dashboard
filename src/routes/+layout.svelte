@@ -5,7 +5,7 @@
 	import Sidebar from '$lib/components/sidebar.svelte';
 	import Header from '$lib/components/header.svelte';
 	import { invalidateAll } from '$app/navigation';
-	import type { RedisStatus } from '$lib/types';
+	import { page } from '$app/stores';
 
 	let { children, data } = $props();
 
@@ -22,6 +22,13 @@
 	function handleRefresh() {
 		invalidateAll();
 	}
+
+	// Get page title from route data or page store
+	const pageTitle = $derived(
+		$page.data?.pageTitle || 
+		data?.pageTitle || 
+		'Dashboard'
+	);
 </script>
 
 <svelte:head>
@@ -43,9 +50,9 @@
 		style:margin-left={sidebarCollapsed ? '4rem' : '16rem'}
 	>
 		<Header
-			title={data.pageTitle || 'Dashboard'}
+			title={pageTitle}
 			darkMode={$darkMode}
-			redisStatus={data.redisStatus}
+			redisStatus={data?.redisStatus}
 			onToggleTheme={() => darkMode.toggle()}
 			onRefresh={handleRefresh}
 		/>
