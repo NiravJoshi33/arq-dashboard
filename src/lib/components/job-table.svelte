@@ -9,7 +9,6 @@
 	import { formatDuration, formatRelativeTime, truncateString } from '$lib/utils';
 	import { ArrowUpDown, ChevronUp, ChevronDown } from 'lucide-svelte';
 	import type { Job, JobSort } from '$lib/types';
-	import type { Component } from 'svelte';
 
 	interface Props {
 		jobs: Job[];
@@ -31,17 +30,13 @@
 		onSort({ field, direction: newDirection });
 	}
 
-	function getSortIcon(field: SortableField): Component {
-		if (sort?.field !== field) return ArrowUpDown;
-		return sort.direction === 'asc' ? ChevronUp : ChevronDown;
+	function isSortedAsc(field: SortableField): boolean {
+		return sort?.field === field && sort.direction === 'asc';
 	}
 
-	const idIcon = $derived(getSortIcon('id'));
-	const functionIcon = $derived(getSortIcon('function'));
-	const statusIcon = $derived(getSortIcon('status'));
-	const queueIcon = $derived(getSortIcon('queue'));
-	const enqueuedAtIcon = $derived(getSortIcon('enqueuedAt'));
-	const durationIcon = $derived(getSortIcon('duration'));
+	function isSortedDesc(field: SortableField): boolean {
+		return sort?.field === field && sort.direction === 'desc';
+	}
 </script>
 
 <Table>
@@ -53,7 +48,13 @@
 					onclick={() => handleSort('id')}
 				>
 					Job ID
-					<svelte:component this={idIcon} class="h-4 w-4" />
+					{#if isSortedAsc('id')}
+						<ChevronUp class="h-4 w-4" />
+					{:else if isSortedDesc('id')}
+						<ChevronDown class="h-4 w-4" />
+					{:else}
+						<ArrowUpDown class="h-4 w-4" />
+					{/if}
 				</button>
 			</TableHead>
 			<TableHead>
@@ -62,7 +63,13 @@
 					onclick={() => handleSort('function')}
 				>
 					Function
-					<svelte:component this={functionIcon} class="h-4 w-4" />
+					{#if isSortedAsc('function')}
+						<ChevronUp class="h-4 w-4" />
+					{:else if isSortedDesc('function')}
+						<ChevronDown class="h-4 w-4" />
+					{:else}
+						<ArrowUpDown class="h-4 w-4" />
+					{/if}
 				</button>
 			</TableHead>
 			<TableHead class="w-[100px]">
@@ -71,7 +78,13 @@
 					onclick={() => handleSort('status')}
 				>
 					Status
-					<svelte:component this={statusIcon} class="h-4 w-4" />
+					{#if isSortedAsc('status')}
+						<ChevronUp class="h-4 w-4" />
+					{:else if isSortedDesc('status')}
+						<ChevronDown class="h-4 w-4" />
+					{:else}
+						<ArrowUpDown class="h-4 w-4" />
+					{/if}
 				</button>
 			</TableHead>
 			<TableHead class="w-[100px]">
@@ -80,7 +93,13 @@
 					onclick={() => handleSort('queue')}
 				>
 					Queue
-					<svelte:component this={queueIcon} class="h-4 w-4" />
+					{#if isSortedAsc('queue')}
+						<ChevronUp class="h-4 w-4" />
+					{:else if isSortedDesc('queue')}
+						<ChevronDown class="h-4 w-4" />
+					{:else}
+						<ArrowUpDown class="h-4 w-4" />
+					{/if}
 				</button>
 			</TableHead>
 			<TableHead class="w-[140px]">
@@ -89,7 +108,13 @@
 					onclick={() => handleSort('enqueuedAt')}
 				>
 					Enqueued
-					<svelte:component this={enqueuedAtIcon} class="h-4 w-4" />
+					{#if isSortedAsc('enqueuedAt')}
+						<ChevronUp class="h-4 w-4" />
+					{:else if isSortedDesc('enqueuedAt')}
+						<ChevronDown class="h-4 w-4" />
+					{:else}
+						<ArrowUpDown class="h-4 w-4" />
+					{/if}
 				</button>
 			</TableHead>
 			<TableHead class="w-[100px]">
@@ -98,7 +123,13 @@
 					onclick={() => handleSort('duration')}
 				>
 					Duration
-					<svelte:component this={durationIcon} class="h-4 w-4" />
+					{#if isSortedAsc('duration')}
+						<ChevronUp class="h-4 w-4" />
+					{:else if isSortedDesc('duration')}
+						<ChevronDown class="h-4 w-4" />
+					{:else}
+						<ArrowUpDown class="h-4 w-4" />
+					{/if}
 				</button>
 			</TableHead>
 		</TableRow>
