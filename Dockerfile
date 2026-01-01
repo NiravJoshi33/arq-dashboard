@@ -3,36 +3,44 @@ FROM node:22-alpine AS builder
 
 WORKDIR /app
 
+# Install pnpm
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
 # Copy package files
-COPY package*.json ./
+COPY package.json pnpm-lock.yaml ./
 
 # Install dependencies
-RUN npm ci
+RUN pnpm install --frozen-lockfile
 
 # Copy source files
 COPY . .
 
 # Build the application
-RUN npm run build
+RUN pnpm build
 
 # Production stage
 FROM node:22-alpine AS runner
 
 WORKDIR /app
 
-# Create non-root user
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 sveltekit
+# Install Python for unpickling ARQ job data
+RUN apk add --no-cache python3
 
-# Copy built application
-COPY --from=builder /app/build ./build
-COPY --from=builder /app/package*.json ./
+# Install pnpm
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+# Create non-root user
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 sveltekit
+
+# Copy built application and scripts
+COPY --from=builder --chown=sveltekit:nodejs /app/build ./build
+COPY --from=builder --chown=sveltekit:nodejs /app/scripts ./scripts
+COPY --from=builder --chown=sveltekit:nodejs /app/package.json /app/pnpm-lock.yaml ./
 
 # Install production dependencies only
-RUN npm ci --omit=dev && npm cache clean --force
-
-# Change ownership
-RUN chown -R sveltekit:nodejs /app
+RUN pnpm install --prod --frozen-lockfile && \
+    pnpm store prune
 
 USER sveltekit
 
@@ -41,13 +49,10 @@ ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOST=0.0.0.0
 
-# Expose port
 EXPOSE 3000
 
-# Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:3000/ || exit 1
 
-# Start the application
 CMD ["node", "build"]
 
