@@ -11,7 +11,7 @@
 	let { class: className, children, ...restProps }: Props = $props();
 </script>
 
-<div class={cn('p-6 pt-0', className)} {...restProps}>
+<div class={cn('px-4 pb-3 pt-0', className)} {...restProps}>
 	{#if children}
 		{@render children()}
 	{/if}

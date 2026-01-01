@@ -44,18 +44,18 @@
 </script>
 
 <Card class={cn(variantStyles[variant], className)}>
-	<CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
-		<CardTitle class="text-sm font-medium text-muted-foreground">{title}</CardTitle>
+	<CardHeader class="flex flex-row items-center justify-between space-y-0 pb-1.5">
+		<CardTitle class="text-xs font-medium text-muted-foreground uppercase tracking-wide">{title}</CardTitle>
 		{#if Icon}
-			<div class={cn('h-5 w-5', iconStyles[variant])}>
-				<Icon size={20} />
+			<div class={cn('h-4 w-4', iconStyles[variant])}>
+				<Icon size={16} strokeWidth={2.5} />
 			</div>
 		{/if}
 	</CardHeader>
-	<CardContent>
-		<div class="text-3xl font-bold tracking-tight">{value}</div>
+	<CardContent class="pt-1">
+		<div class="text-2xl font-semibold tracking-tight">{value}</div>
 		{#if description || trend}
-			<p class="mt-1 text-xs text-muted-foreground">
+			<p class="mt-0.5 text-xs text-muted-foreground/80">
 				{#if trend}
 					<span
 						class={cn(

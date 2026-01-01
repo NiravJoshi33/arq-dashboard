@@ -26,9 +26,9 @@
 	const stats = $derived(data.stats);
 </script>
 
-<div class="space-y-6">
+<div class="space-y-4">
 	<!-- Stats Cards -->
-	<div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+	<div class="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
 		<StatsCard
 			title="Queued"
 			value={stats.queued}
@@ -60,20 +60,20 @@
 	</div>
 
 	<!-- Charts Row -->
-	<div class="grid gap-6 lg:grid-cols-3">
+	<div class="grid gap-3 lg:grid-cols-3">
 		<!-- Queue Depth Chart -->
 		<Card class="lg:col-span-2">
-			<CardHeader>
-				<CardTitle class="flex items-center gap-2">
-					<Activity class="h-5 w-5 text-primary" />
+			<CardHeader class="pb-3">
+				<CardTitle class="flex items-center gap-2 text-sm font-medium">
+					<Activity class="h-4 w-4 text-primary" strokeWidth={2.5} />
 					Queue Depth
 				</CardTitle>
 			</CardHeader>
-			<CardContent>
+			<CardContent class="pt-0">
 				{#if stats.queues.length > 0}
 					<QueueChart queues={stats.queues} />
 				{:else}
-					<div class="flex h-[300px] items-center justify-center text-muted-foreground">
+					<div class="flex h-[280px] items-center justify-center text-muted-foreground text-sm">
 						No queue data available
 					</div>
 				{/if}
@@ -82,27 +82,27 @@
 
 		<!-- Success Rate -->
 		<Card>
-			<CardHeader>
-				<CardTitle class="flex items-center gap-2">
-					<TrendingUp class="h-5 w-5 text-success" />
+			<CardHeader class="pb-3">
+				<CardTitle class="flex items-center gap-2 text-sm font-medium">
+					<TrendingUp class="h-4 w-4 text-success" strokeWidth={2.5} />
 					Success Rate
 				</CardTitle>
 			</CardHeader>
-			<CardContent>
+			<CardContent class="pt-0">
 				<SuccessRateChart
 					hourRate={stats.successRate.hour}
 					dayRate={stats.successRate.day}
 				/>
-				<div class="mt-4 space-y-2">
-					<div class="flex items-center justify-between text-sm">
+				<div class="mt-3 space-y-1.5">
+					<div class="flex items-center justify-between text-xs">
 						<span class="text-muted-foreground">Last Hour</span>
-						<Badge variant={stats.successRate.hour >= 95 ? 'success' : stats.successRate.hour >= 80 ? 'warning' : 'destructive'}>
+						<Badge variant={stats.successRate.hour >= 95 ? 'success' : stats.successRate.hour >= 80 ? 'warning' : 'destructive'} class="text-xs font-semibold">
 							{stats.successRate.hour.toFixed(1)}%
 						</Badge>
 					</div>
-					<div class="flex items-center justify-between text-sm">
+					<div class="flex items-center justify-between text-xs">
 						<span class="text-muted-foreground">Last 24 Hours</span>
-						<Badge variant={stats.successRate.day >= 95 ? 'success' : stats.successRate.day >= 80 ? 'warning' : 'destructive'}>
+						<Badge variant={stats.successRate.day >= 95 ? 'success' : stats.successRate.day >= 80 ? 'warning' : 'destructive'} class="text-xs font-semibold">
 							{stats.successRate.day.toFixed(1)}%
 						</Badge>
 					</div>
@@ -113,31 +113,31 @@
 
 	<!-- Queue List -->
 	<Card>
-		<CardHeader>
-			<CardTitle>Active Queues</CardTitle>
+		<CardHeader class="pb-3">
+			<CardTitle class="text-sm font-medium">Active Queues</CardTitle>
 		</CardHeader>
-		<CardContent>
+		<CardContent class="pt-0">
 			{#if stats.queues.length > 0}
-				<div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+				<div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
 					{#each stats.queues as queue}
 						<a
 							href="/jobs?queue={queue.name}"
-							class="flex items-center justify-between rounded-lg border border-border bg-muted/30 p-4 transition-colors hover:bg-muted/50"
+							class="flex items-center justify-between rounded border border-border/50 bg-muted/20 px-3 py-2.5 transition-colors hover:bg-muted/40 hover:border-border"
 						>
 							<div>
-								<p class="font-medium">{queue.name}</p>
-								<p class="text-sm text-muted-foreground">
+								<p class="font-medium text-sm">{queue.name}</p>
+								<p class="text-xs text-muted-foreground/80">
 									{queue.depth} queued
 								</p>
 							</div>
-							<Badge variant={queue.depth > 100 ? 'warning' : 'secondary'}>
+							<Badge variant={queue.depth > 100 ? 'warning' : 'secondary'} class="text-xs font-semibold">
 								{queue.depth}
 							</Badge>
 						</a>
 					{/each}
 				</div>
 			{:else}
-				<p class="text-center text-muted-foreground py-8">
+				<p class="text-center text-muted-foreground text-sm py-6">
 					No active queues found. Make sure Redis is connected and ARQ workers are running.
 				</p>
 			{/if}

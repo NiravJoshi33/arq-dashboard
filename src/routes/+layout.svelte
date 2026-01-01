@@ -55,7 +55,7 @@
 			onRefresh={handleRefresh}
 		/>
 
-		<main class="p-6">
+		<main class="p-4">
 			{@render children()}
 		</main>
 	</div>
