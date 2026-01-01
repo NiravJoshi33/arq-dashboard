@@ -1,5 +1,8 @@
 import { getRedis } from "./redis";
 import { Parser } from "pickleparser";
+import { spawn } from "child_process";
+import { fileURLToPath } from "url";
+import { dirname, join } from "path";
 import type {
   Job,
   JobStatus,
@@ -15,6 +18,11 @@ import type {
 // Create a pickle parser instance for decoding ARQ job data
 const pickleParser = new Parser();
 
+// Get the project root directory
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const projectRoot = join(__dirname, "../..");
+
 // ARQ Redis key patterns
 const KEYS = {
   QUEUE: (name: string) => `arq:queue:${name}`,
@@ -26,6 +34,46 @@ const KEYS = {
 
 // Default queue name used by ARQ
 const DEFAULT_QUEUE = "arq:queue";
+
+// Call Python to unpickle data (fallback when JS parser fails)
+async function unpickleWithPython(
+  buffer: Buffer
+): Promise<Record<string, unknown> | null> {
+  return new Promise((resolve) => {
+    const pythonScript = join(projectRoot, "scripts/unpickle.py");
+    const python = spawn("python3", [pythonScript]);
+
+    let stdout = "";
+    let stderr = "";
+
+    python.stdout.on("data", (data) => {
+      stdout += data.toString();
+    });
+
+    python.stderr.on("data", (data) => {
+      stderr += data.toString();
+    });
+
+    python.on("close", (code) => {
+      if (code === 0 && stdout) {
+        try {
+          resolve(JSON.parse(stdout));
+        } catch {
+          resolve(null);
+        }
+      } else {
+        if (stderr && Math.random() < 0.05) {
+          console.error("Python unpickle error:", stderr);
+        }
+        resolve(null);
+      }
+    });
+
+    // Write the buffer to Python's stdin
+    python.stdin.write(buffer);
+    python.stdin.end();
+  });
+}
 
 // Parse raw job data from Redis into Job interface
 function parseJob(raw: RawJobData, status: JobStatus): Job {
@@ -64,60 +112,78 @@ function parseJob(raw: RawJobData, status: JobStatus): Job {
 }
 
 // Decode data from Redis - ARQ uses pickle format by default
-function decodeJobData(data: string | Buffer | null): RawJobData | null {
+async function decodeJobData(
+  data: string | Buffer | null
+): Promise<RawJobData | null> {
   if (!data) return null;
 
   try {
-    // Convert to Uint8Array for pickle decoding
-    let buffer: Uint8Array;
+    // Convert to Buffer for processing
+    let buffer: Buffer;
     if (Buffer.isBuffer(data)) {
-      buffer = new Uint8Array(data);
+      buffer = data;
     } else if (typeof data === "string") {
       // Try JSON first (for backwards compatibility or result keys)
       try {
         return JSON.parse(data) as RawJobData;
       } catch {
         // Not JSON, convert string to buffer for pickle
-        buffer = new Uint8Array(Buffer.from(data, "binary"));
+        buffer = Buffer.from(data, "binary");
       }
     } else {
       return null;
     }
 
-    // Decode pickle data
-    const decoded = pickleParser.parse<Record<string, unknown>>(buffer);
-
-    // ARQ stores job data with specific field names, map them to our interface
-    // ARQ field names: job_id, function, args, kwargs, job_try, enqueue_time, score
-    const jobId =
-      (decoded.job_id as string) ||
-      (decoded.id as string) ||
-      (decoded.j as string) ||
-      "";
-
-    return {
-      id: jobId,
-      function: (decoded.function || decoded.f || "") as string,
-      queue: (decoded.queue || decoded.q || "default") as string,
-      args: (decoded.args || decoded.a || []) as unknown[],
-      kwargs: (decoded.kwargs || decoded.kw || {}) as Record<string, unknown>,
-      enqueue_time: (decoded.enqueue_time ||
-        decoded.et ||
-        Date.now() / 1000) as number,
-      start_time: (decoded.start_time || decoded.st) as number | undefined,
-      finish_time: (decoded.finish_time || decoded.ft) as number | undefined,
-      result: decoded.result || decoded.r,
-      success: decoded.success as boolean | undefined,
-      error: (decoded.error || decoded.e) as string | undefined,
-      traceback: (decoded.traceback || decoded.tb) as string | undefined,
-      retry: (decoded.job_try || decoded.retry || decoded.t || 0) as number,
-      expires: (decoded.expires || decoded.ex) as number | undefined,
-      score: decoded.score as number | undefined,
-    };
+    // Try to decode with JavaScript pickle parser first
+    try {
+      const uint8Buffer = new Uint8Array(buffer);
+      const decoded = pickleParser.parse<Record<string, unknown>>(uint8Buffer);
+      return mapToRawJobData(decoded);
+    } catch (jsErr) {
+      // JS pickle parser failed, fall back to Python
+      const decoded = await unpickleWithPython(buffer);
+      if (decoded) {
+        return mapToRawJobData(decoded);
+      }
+      return null;
+    }
   } catch (err) {
-    console.error("Error decoding job data:", err);
+    // Only log first few errors to avoid spam
+    if (Math.random() < 0.05) {
+      console.error("Error decoding job data:", err);
+    }
     return null;
   }
+}
+
+// Map decoded pickle data to RawJobData interface
+function mapToRawJobData(decoded: Record<string, unknown>): RawJobData {
+  // ARQ uses short field names in pickle format:
+  // t = job_try (retry), f = function, a = args, k = kwargs, et = enqueue_time,
+  // s = score, r = result, st = start_time, ft = finish_time, q = queue, id = job_id
+  // e = error, tb = traceback, ex = expires
+
+  const jobId = (decoded.id as string) || (decoded.job_id as string) || "";
+
+  return {
+    id: jobId,
+    function: (decoded.f || decoded.function || "") as string,
+    queue: (decoded.q || decoded.queue || "default") as string,
+    args: (decoded.a || decoded.args || []) as unknown[],
+    kwargs: (decoded.k || decoded.kwargs || {}) as Record<string, unknown>,
+    enqueue_time: (decoded.et ||
+      decoded.enqueue_time ||
+      Date.now() / 1000) as number,
+    start_time: (decoded.st || decoded.start_time) as number | undefined,
+    finish_time: (decoded.ft || decoded.finish_time) as number | undefined,
+    result: decoded.r || decoded.result,
+    success: decoded.success as boolean | undefined,
+    error: (decoded.e || decoded.error) as string | undefined,
+    traceback: (decoded.tb || decoded.traceback) as string | undefined,
+    retry: (decoded.t || decoded.job_try || decoded.retry || 0) as number,
+    expires: (decoded.ex || decoded.expires) as number | undefined,
+    score: (decoded.s || decoded.score) as number | undefined,
+  };
 }
 
 // Safely get queue depth - handles different key types
@@ -140,23 +206,22 @@ async function safeGetQueueDepth(queueKey: string): Promise<number> {
   }
 }
 
-// Get raw job data from queue as buffers (ARQ stores msgpack data directly in sorted set)
-async function safeGetQueueJobsRaw(queueKey: string): Promise<Buffer[]> {
+// Get job IDs from queue (ARQ stores job IDs as strings in sorted set, not the job data itself)
+async function safeGetQueueJobIds(queueKey: string): Promise<string[]> {
   const redis = getRedis();
   try {
     const keyType = await redis.type(queueKey);
     if (keyType === "zset") {
-      // Use zrangeBuffer to get raw binary data
-      return await redis.zrangeBuffer(queueKey, 0, -1);
+      // Sorted set contains job IDs as strings
+      return await redis.zrange(queueKey, 0, -1);
     } else if (keyType === "list") {
-      // Use lrangeBuffer for lists
-      return await redis.lrangeBuffer(queueKey, 0, -1);
+      return await redis.lrange(queueKey, 0, -1);
     } else if (keyType === "none") {
       return [];
     }
     return [];
   } catch (err) {
-    console.error(`Error getting jobs from ${queueKey}:`, err);
+    console.error(`Error getting job IDs from ${queueKey}:`, err);
     return [];
   }
 }
@@ -215,6 +280,7 @@ export async function getQueues(): Promise<string[]> {
 
 // Get queued jobs from a specific queue
 export async function getQueuedJobs(queue?: string): Promise<Job[]> {
+  const redis = getRedis();
   const jobs: Job[] = [];
 
   try {
@@ -222,20 +288,23 @@ export async function getQueuedJobs(queue?: string): Promise<Job[]> {
 
     for (const q of queues) {
       const queueKey = q === "default" ? DEFAULT_QUEUE : KEYS.QUEUE(q);
-      // Get raw job data directly from queue (ARQ stores msgpack data as sorted set members)
-      const jobDataList = await safeGetQueueJobsRaw(queueKey);
+      // Get job IDs from queue (ARQ stores job IDs as strings in sorted set)
+      const jobIds = await safeGetQueueJobIds(queueKey);
 
-      for (const jobData of jobDataList) {
+      for (const jobId of jobIds) {
         try {
-          const raw = decodeJobData(jobData);
-          if (raw) {
-            // Generate job ID from function name and enqueue time if not present
-            raw.id = raw.id || `${raw.function}-${raw.enqueue_time}`;
-            raw.queue = q;
-            jobs.push(parseJob(raw, "queued"));
+          // Fetch the actual job data from arq:job:{id}
+          const jobData = await redis.getBuffer(KEYS.JOB(jobId));
+          if (jobData) {
+            const raw = await decodeJobData(jobData);
+            if (raw) {
+              raw.id = jobId;
+              raw.queue = q;
+              jobs.push(parseJob(raw, "queued"));
+            }
           }
         } catch (err) {
-          console.error(`Error decoding job from queue ${q}:`, err);
+          console.error(`Error decoding job ${jobId} from queue ${q}:`, err);
         }
       }
     }
@@ -259,7 +328,7 @@ export async function getInProgressJobs(): Promise<Job[]> {
         // Use getBuffer for binary msgpack data
         const jobData = await redis.getBuffer(KEYS.JOB(jobId));
         if (jobData) {
-          const raw = decodeJobData(jobData);
+          const raw = await decodeJobData(jobData);
           if (raw) {
             raw.id = jobId;
             jobs.push(parseJob(raw, "in-progress"));
@@ -286,7 +355,7 @@ export async function getJobResult(jobId: string): Promise<Job | null> {
 
     if (!resultData) return null;
 
-    const raw = decodeJobData(resultData);
+    const raw = await decodeJobData(resultData);
     if (!raw) return null;
 
     raw.id = jobId;
@@ -414,7 +483,7 @@ export async function getStats(): Promise<DashboardStats> {
           // Use getBuffer for binary msgpack data
           const data = await redis.getBuffer(key);
           if (data) {
-            const raw = decodeJobData(data);
+            const raw = await decodeJobData(data);
             if (raw) {
               const finishTime = raw.finish_time ? raw.finish_time * 1000 : 0;
               const isFailed = raw.success === false;
